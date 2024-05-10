@@ -4,3 +4,6 @@
 *.orig
 *.patch
 *.rej
+
+.idea
+README_STEP2.md
