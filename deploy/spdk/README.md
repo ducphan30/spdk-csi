@@ -8,6 +8,9 @@ and SPDK xPU nodes with SMA server on localhost for function tests.
 # build spdk container image, which could be used for SPDK storage node and xPU node
 cd deploy/spdk
 sudo docker build -t spdkdev .
+
+# or for MacBook M1 user
+sudo docker build --build-arg="ARCH=armv8.5-a" -t spdkdev .
 ```
 
 ## Step by step to launch a SPDK storage node
