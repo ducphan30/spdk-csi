@@ -151,6 +151,15 @@ func (node *nodeNVMf) DeleteVolume(lvolID string) error {
 	return nil
 }
 
+func (node *nodeNVMf) SetQosLimitOnVolume(lvolID string, qosLimit QosLimit) error {
+	err := node.client.setQosLimitOnVolume(lvolID, qosLimit)
+	if err != nil {
+		return err
+	}
+	klog.V(5).Infof("QoS configured on volume: %s", lvolID)
+	return nil
+}
+
 // PublishVolume exports a volume through NVMf target
 func (node *nodeNVMf) PublishVolume(lvolID string) error {
 	exists, err := node.isVolumeCreated(lvolID)

@@ -84,6 +84,7 @@ type SpdkNode interface {
 	PublishVolume(lvolID string) error
 	UnpublishVolume(lvolID string) error
 	CreateSnapshot(lvolName, snapshotName string) (string, error)
+	SetQosLimitOnVolume(lvolID string, qosLimit QosLimit) error
 }
 
 // logical volume store
@@ -105,6 +106,13 @@ type BDev struct {
 			LvolStoreUUID string `json:"lvol_store_uuid"`
 		} `json:"lvol"`
 	} `json:"driver_specific,omitempty"`
+}
+
+type QosLimit struct {
+	ReadWriteIosPerSec    int64 `json:"rw_ios_per_sec"`
+	ReadWriteMbytesPerSec int64 `json:"rw_mbytes_per_sec"`
+	ReadMbytesPerSec      int64 `json:"r_mbytes_per_sec"`
+	WriteMbytesPerSec     int64 `json:"w_mbytes_per_sec"`
 }
 
 // errors deserve special care
@@ -183,7 +191,7 @@ func (client *rpcClient) lvStores() ([]LvStore, error) {
 func (client *rpcClient) createVolume(lvolName, lvsName string, sizeMiB int64) (string, error) {
 	params := struct {
 		LvolName      string `json:"lvol_name"`
-		Size          int64  `json:"size"`
+		Size          int64  `json:"size_in_mib"`
 		LvsName       string `json:"lvs_name"`
 		ClearMethod   string `json:"clear_method"`
 		ThinProvision bool   `json:"thin_provision"`
@@ -203,6 +211,22 @@ func (client *rpcClient) createVolume(lvolName, lvsName string, sizeMiB int64) (
 	}
 
 	return lvolID, err
+}
+
+func (client *rpcClient) setQosLimitOnVolume(lvolID string, qosLimit QosLimit) error {
+	params := struct {
+		LvolName string `json:"name"`
+		QosLimit
+	}{
+		LvolName: lvolID,
+		QosLimit: qosLimit,
+	}
+
+	err := client.call("bdev_set_qos_limit", &params, nil)
+	if errorMatches(err, ErrJSONNoSuchDevice) {
+		return ErrJSONNoSuchDevice
+	}
+	return err
 }
 
 func (client *rpcClient) cloneVolume(lvolName, snapshotName string) (string, error) {
