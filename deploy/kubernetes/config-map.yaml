@@ -15,9 +15,9 @@ data:
       "nodes": [
         {
           "name": "localhost",
-          "rpcURL": "http://127.0.0.1:9009",
+          "rpcURL": "http://192.168.64.9:9009",
           "targetType": "nvme-tcp",
-          "targetAddr": "127.0.0.1"
+          "targetAddr": "192.168.64.9"
         }
       ]
     }
