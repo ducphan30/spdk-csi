@@ -9,6 +9,11 @@ metadata:
 provisioner: csi.spdk.io
 parameters:
   fsType: ext4
+  # QoS parameters are optional
+  qosReadWriteIops: "0"
+  qosReadWriteMbytes: "0"
+  qosReadMbytes: "0"
+  qosWriteMbytes: "0"
   csi.storage.k8s.io/provisioner-secret-name: spdkcsi-secret
   csi.storage.k8s.io/provisioner-secret-namespace: default
 reclaimPolicy: Delete

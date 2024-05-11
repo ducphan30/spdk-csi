@@ -33,6 +33,13 @@ import (
 	"github.com/spdk/spdk-csi/pkg/util"
 )
 
+const (
+	QosReadWriteIops   = "qosReadWriteIops"
+	QosReadWriteMbytes = "qosReadWriteMbytes"
+	QosReadMbytes      = "qosReadMbytes"
+	QosWriteMbytes     = "qosWriteMbytes"
+)
+
 var errVolumeInCreation = status.Error(codes.Internal, "volume in creation")
 
 type controllerServer struct {
@@ -54,6 +61,13 @@ func (cs *controllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 	csiVolume, err := cs.createVolume(req)
 	if err != nil {
 		klog.Errorf("failed to create volume, volumeID: %s err: %v", volumeID, err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	err = cs.setQosLimitOnVolume(csiVolume.GetVolumeId(), req.GetParameters(), req.Secrets)
+	if err != nil {
+		klog.Errorf("failed to set QoS rate limit on volume, volumeID: %s err: %v", volumeID, err)
+		cs.deleteVolume(csiVolume.GetVolumeId(), req.Secrets) //nolint:errcheck
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -329,6 +343,57 @@ func (cs *controllerServer) deleteVolume(volumeID string, secrets map[string]str
 		return err
 	}
 	return node.DeleteVolume(spdkVol.lvolID)
+}
+
+func (cs *controllerServer) setQosLimitOnVolume(volumeID string, volumeParams map[string]string, secrets map[string]string) error {
+	qosLimit := util.QosLimit{
+		ReadWriteIosPerSec:    0,
+		ReadWriteMbytesPerSec: 0,
+		ReadMbytesPerSec:      0,
+		WriteMbytesPerSec:     0,
+	}
+
+	if value, ok := volumeParams[QosReadWriteIops]; ok {
+		qosValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse value for volume parameter %s: %s", QosReadWriteIops, value)
+		}
+		qosLimit.ReadWriteIosPerSec = qosValue
+	}
+
+	if value, ok := volumeParams[QosReadWriteMbytes]; ok {
+		qosValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse value for volume parameter %s: %s", QosReadWriteMbytes, value)
+		}
+		qosLimit.ReadWriteMbytesPerSec = qosValue
+	}
+
+	if value, ok := volumeParams[QosReadMbytes]; ok {
+		qosValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse value for volume parameter %s: %s", QosReadMbytes, value)
+		}
+		qosLimit.ReadMbytesPerSec = qosValue
+	}
+
+	if value, ok := volumeParams[QosWriteMbytes]; ok {
+		qosValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse value for volume parameter %s: %s", QosWriteMbytes, value)
+		}
+		qosLimit.WriteMbytesPerSec = qosValue
+	}
+
+	spdkVol, err := getSPDKVol(volumeID)
+	if err != nil {
+		return err
+	}
+	node, err := cs.getSpdkNode(spdkVol.nodeName, secrets)
+	if err != nil {
+		return err
+	}
+	return node.SetQosLimitOnVolume(spdkVol.lvolID, qosLimit)
 }
 
 func (cs *controllerServer) unpublishVolume(volumeID string, secrets map[string]string) error {
